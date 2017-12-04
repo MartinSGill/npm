@@ -20,16 +20,21 @@ interpreted as a configuration parameter.  For example, putting
 configuration parameter to `bar`.  Any environment configurations that
 are not given a value will be given the value of `true`.  Config
 values are case-insensitive, so `NPM_CONFIG_FOO=bar` will work the
-same.
+same. However, please note that inside [npm-scripts](/misc/scripts)
+npm will set it's own environment variables and Node will prefer
+those lowercase versions over any uppercase ones that you might set.
+For details see [this issue](https://github.com/npm/npm/issues/14528).
 
 ### npmrc Files
 
 The four relevant files are:
 
-* per-project config file (/path/to/my/project/.npmrc)
-* per-user config file (~/.npmrc)
-* global config file ($PREFIX/etc/npmrc)
-* npm builtin config file (/path/to/npm/npmrc)
+* per-project configuration file (`/path/to/my/project/.npmrc`)
+* per-user configuration file (defaults to `$HOME/.npmrc`; configurable via CLI
+  option `--userconfig` or environment variable `$NPM_CONF_USERCONFIG`)
+* global configuration file (defaults to `$PREFIX/etc/npmrc`; configurable via
+  CLI option `--globalconfig` or environment variable `$NPM_CONF_GLOBALCONFIG`)
+* npm's built-in configuration file (`/path/to/npm/npmrc`)
 
 See npmrc(5) for more details.
 
@@ -116,6 +121,14 @@ you want your scoped package to be publicly viewable (and installable) set
 `--access=public`. The only valid values for `access` are `public` and
 `restricted`. Unscoped packages _always_ have an access level of `public`.
 
+### allow-same-version
+
+* Default: false
+* Type: Boolean
+
+Prevents throwing an error when `npm version` is used to set the new version 
+to the same value as the current version.
+
 ### always-auth
 
 * Default: false
@@ -131,6 +144,13 @@ even for `GET` requests.
 
 When "dev" or "development" and running local `npm shrinkwrap`,
 `npm outdated`, or `npm update`, is an alias for `--dev`.
+
+### auth-type
+
+* Default: `'legacy'`
+* Type: `'legacy'`, `'sso'`, `'saml'`, `'oauth'`
+
+What authentication strategy to use with `adduser`/`login`.
 
 ### bin-links
 
@@ -236,11 +256,16 @@ explicitly used, and that only GET requests use the cache.
 * Default: `null`
 * Type: String
 
-A client certificate to pass when accessing the registry.
+A client certificate to pass when accessing the registry.  Values should be in
+PEM format with newlines replaced by the string "\n". For example:
+
+    cert="-----BEGIN CERTIFICATE-----\nXXXX\nXXXX\n-----END CERTIFICATE-----"
+
+It is _not_ the path to a certificate file (and there is no "certfile" option).
 
 ### color
 
-* Default: true on Posix, false on Windows
+* Default: true
 * Type: Boolean or `"always"`
 
 If false, never shows colors.  If `"always"` then always shows colors.
@@ -272,9 +297,6 @@ Show the description in `npm search`
 * Type: Boolean
 
 Install `dev-dependencies` along with packages.
-
-Note that `dev-dependencies` are also installed if the `npat` flag is
-set.
 
 ### dry-run
 
@@ -394,7 +416,7 @@ Causes npm to install the package into your local `node_modules` folder with
 the same layout it uses with the global `node_modules` folder.  Only your
 direct dependencies will show in `node_modules` and everything they depend
 on will be flattened in their `node_modules` folders.  This obviously will
-elminate some deduping. If used with `legacy-bundling`, `legacy-bundling` will be
+eliminate some deduping. If used with `legacy-bundling`, `legacy-bundling` will be
 preferred.
 
 ### group
@@ -492,16 +514,21 @@ version number, if not already set in package.json.
 
 Whether or not to output JSON data, rather than the normal output.
 
-This feature is currently experimental, and the output data structures
-for many commands is either not implemented in JSON yet, or subject to
-change.  Only the output from `npm ls --json` is currently valid.
+This feature is currently experimental, and the output data structures for many
+commands is either not implemented in JSON yet, or subject to change.  Only the
+output from `npm ls --json` and `npm search --json` are currently valid.
 
 ### key
 
 * Default: `null`
 * Type: String
 
-A client key to pass when accessing the registry.
+A client key to pass when accessing the registry.  Values should be in PEM
+format with newlines replaced by the string "\n". For example:
+
+    key="-----BEGIN PRIVATE KEY-----\nXXXX\nXXXX\n-----END PRIVATE KEY-----"
+
+It is _not_ the path to a key file (and there is no "keyfile" option).
 
 ### legacy-bundling
 
@@ -564,12 +591,27 @@ stderr.
 If the `color` config is set to true, then this stream will receive
 colored output if it is a TTY.
 
+### logs-max
+
+* Default: 10
+* Type: Number
+
+The maximum number of log files to store.
+
 ### long
 
 * Default: false
 * Type: Boolean
 
 Show extended information in `npm ls` and `npm search`.
+
+### maxsockets
+
+* Default: 50
+* Type: Number
+
+The maximum number of connections to use per origin (protocol/host/port
+combination). Passed to the `http` `Agent` used to make the request.
 
 ### message
 
@@ -580,19 +622,19 @@ Commit message which is used by `npm version` when creating version commit.
 
 Any "%s" in the message will be replaced with the version number.
 
+### metrics-registry
+
+* Default: The value of  `registry` (which defaults to "https://registry.npmjs.org/")
+* Type: String
+
+The registry you want to send cli metrics to if `send-metrics` is true.
+
 ### node-version
 
 * Default: process.version
 * Type: semver or false
 
 The node version to use when checking a package's `engines` map.
-
-### npat
-
-* Default: false
-* Type: Boolean
-
-Run tests on installation.
 
 ### onload-script
 
@@ -635,7 +677,7 @@ process is not aborted.
 * Type: Boolean
 
 Output parseable results from commands that write to
-standard output.
+standard output. For `npm search`, this will be tab-separated table format.
 
 ### prefix
 
@@ -658,7 +700,7 @@ Set to true to run in "production" mode.
 
 ### progress
 
-* Default: true
+* Default: true, unless TRAVIS or CI env vars set.
 * Type: Boolean
 
 When set to `true`, npm will display a progress bar during time intensive
@@ -781,7 +823,7 @@ patch upgrades.
 
 ### scope
 
-* Default: ""
+* Default: the scope of the current project, if any, or ""
 * Type: String
 
 Associate an operation with a scope for a scoped registry. Useful when logging
@@ -790,12 +832,25 @@ in to a private registry for the first time:
 will cause `@organization` to be mapped to the registry for future installation
 of packages specified according to the pattern `@organization/package`.
 
-### searchopts
+### scripts-prepend-node-path
 
-* Default: ""
-* Type: String
+* Default: "warn-only"
+* Type: Boolean, `"auto"` or `"warn-only"`
 
-Space-separated options that are always passed to search.
+If set to `true`, add the directory in which the current `node` executable
+resides to the `PATH` environment variable when running scripts,
+even if that means that `npm` will invoke a different `node` executable than
+the one which it is running.
+
+If set to `false`, never modify `PATH` with that.
+
+If set to `"warn-only"`, never modify `PATH` but print a warning if `npm` thinks
+that you may want to run it with `true`, e.g. because the `node` executable
+in the `PATH` is not the one `npm` was invoked with.
+
+If set to `auto`, only add that directory to the `PATH` environment variable
+if the `node` executable with which `npm` was invoked and the one that is found
+first on the `PATH` are different.
 
 ### searchexclude
 
@@ -804,15 +859,38 @@ Space-separated options that are always passed to search.
 
 Space-separated options that limit the results from search.
 
-### searchsort
+### searchopts
 
-* Default: "name"
+* Default: ""
 * Type: String
-* Values: "name", "-name", "date", "-date", "description",
-  "-description", "keywords", "-keywords"
 
-Indication of which field to sort search results by.  Prefix with a `-`
-character to indicate reverse sort.
+Space-separated options that are always passed to search.
+
+### searchlimit
+
+* Default: 20
+* Type: Number
+
+Number of items to limit search results to. Will not apply at all to legacy
+searches.
+
+### searchstaleness
+
+* Default: 900 (15 minutes)
+* Type: Number
+
+The age of the cache, in seconds, before another registry request is made if
+using legacy search endpoint.
+
+### send-metrics
+
+* Default: false
+* Type: Boolean
+
+If true, success/failure metrics will be reported to the registry stored in
+`metrics-registry`.  These requests contain the number of successful and
+failing runs of the npm CLI and the time period overwhich those counts were
+gathered. No identifying information is included in these requests.
 
 ### shell
 
@@ -840,6 +918,21 @@ using `-s` to add a signature.
 
 Note that git requires you to have set up GPG keys in your git configs
 for this to work properly.
+
+### sso-poll-frequency
+
+* Default: 500
+* Type: Number
+
+When used with SSO-enabled `auth-type`s, configures how regularly the registry
+should be polled while the user is completing authentication.
+
+### sso-type
+
+* Default: 'oauth'
+* Type: 'oauth', 'saml', or null
+
+If `--auth-type=sso`, the type of SSO type to use.
 
 ### strict-ssl
 
@@ -875,6 +968,17 @@ Because other tools may rely on the convention that npm version tags look like
 `v1.0.0`, _only use this property if it is absolutely necessary_. In
 particular, use care when overriding this setting for public packages.
 
+### timing
+
+* Default: `false`
+* Type: Boolean
+
+If true, writes an `npm-debug` log to `_logs` and timing information to
+`_timing.json`, both in your cache.  `_timing.json` is a newline delimited
+list of JSON objects.  You can quickly view it with this
+[json](https://www.npmjs.com/package/json) command line:
+`json -g < ~/.npm/_timing.json`.
+
 ### tmp
 
 * Default: TMPDIR environment variable, or "/tmp"
@@ -885,7 +989,7 @@ on success, but left behind on failure for forensic purposes.
 
 ### unicode
 
-* Default: true on windows and mac/unix systems with a unicode locale
+* Default: false on windows, true on mac/unix systems with a unicode locale
 * Type: Boolean
 
 When set to true, npm uses unicode characters in the tree output.  When

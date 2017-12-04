@@ -7,11 +7,14 @@ var deps = requireInject('../../lib/install/deps.js', {
   '../../lib/npm.js': {
     config: {
       get: function () { return 'mock' }
+    },
+    limit: {
+      fetch: 10
     }
   }
 })
 
-var removeObsoleteDep = deps._removeObsoleteDep
+var removeObsoleteDep = deps.removeObsoleteDep
 
 test('removeObsoleteDep', function (t) {
   var child1 = {requiredBy: []}

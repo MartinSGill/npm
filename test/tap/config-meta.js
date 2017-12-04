@@ -67,7 +67,7 @@ test('get lines', function (t) {
               line: i
             }
           }
-        } else if (exceptions.indexOf(f) === -1) {
+        } else if (exceptions.indexOf(f) === -1 && f.indexOf('.cache') === -1) {
           t.fail('non-string-literal config used in ' + f + ':' + i)
         }
       })
@@ -106,7 +106,7 @@ test('check configs', function (t) {
   }
 
   for (var c2 in DOC) {
-    if (c2 !== 'versions' && c2 !== 'version' && c2 !== 'init.version') {
+    if (c2 !== 'versions' && c2 !== 'version' && c2 !== 'init.version' && c2 !== 'ham-it-up') {
       t.ok(CONFS[c2], 'config in doc should be used somewhere ' + c2)
       t.ok(types.indexOf(c2) !== -1, 'should be defined in npmconf ' + c2)
       t.ok(defaults.indexOf(c2) !== -1, 'should have default in npmconf ' + c2)
@@ -114,14 +114,14 @@ test('check configs', function (t) {
   }
 
   types.forEach(function (c) {
-    if (!c.match(/^\_/) && c !== 'argv' && !c.match(/^versions?$/)) {
+    if (!c.match(/^\_/) && c !== 'argv' && !c.match(/^versions?$/) && c !== 'ham-it-up') {
       t.ok(DOC[c], 'defined type should be documented ' + c)
       t.ok(CONFS[c], 'defined type should be used ' + c)
     }
   })
 
   defaults.forEach(function (c) {
-    if (!c.match(/^\_/) && c !== 'argv' && !c.match(/^versions?$/)) {
+    if (!c.match(/^\_/) && c !== 'argv' && !c.match(/^versions?$/) && c !== 'ham-it-up') {
       t.ok(DOC[c], 'defaulted type should be documented ' + c)
       t.ok(CONFS[c], 'defaulted type should be used ' + c)
     }

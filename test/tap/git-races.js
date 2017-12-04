@@ -60,9 +60,12 @@ function cleanup () {
 var npm = requireInject.installGlobally('../../lib/npm.js', {
   'child_process': {
     'execFile': function (cmd, args, options, cb) {
+      // on win 32, the following prefix is added in utils/git.js
+      // $ git -c core.longpaths=true clone
+      var i = process.platform === 'win32' ? 2 : 0
       // If it's a clone we swap any requests for any of the urls we're mocking
       // with the path to the bare repo
-      if (args[0] === 'clone') {
+      if (args[i] === 'clone') {
         var m2 = args.length - 2
         var m1 = args.length - 1
         if (testrepos[args[m2]]) {
@@ -72,7 +75,7 @@ var npm = requireInject.installGlobally('../../lib/npm.js', {
         execFile(cmd, args, options, cb)
       // here, we intercept npm validating the remote origin url on one of the
       // clones we've done previously and return the original url that was requested
-      } else if (args[0] === 'config' && args[1] === '--get' && args[2] === 'remote.origin.url') {
+      } else if (args[i] === 'config' && args[i + 1] === '--get' && args[i + 2] === 'remote.origin.url') {
         process.nextTick(function () {
           cb(null, testurls[options.cwd], '')
         })
@@ -159,7 +162,8 @@ function setup (cb) {
 var oneTree = [
   'npm-git-test@1.0.0', [
     ['dummy-npm-bar@4.0.0', [
-      ['dummy-npm-foo@3.0.0', []]
+      ['dummy-npm-foo@3.0.0', []],
+      ['dummy-npm-buzz@3.0.0', []]
     ]],
     ['dummy-npm-buzz@3.0.0', []],
     ['dummy-npm-foo@4.0.0', [
@@ -196,17 +200,19 @@ test('setup', function (t) {
 })
 
 test('correct versions are installed for git dependency', function (t) {
-  t.plan(3)
   t.comment('test for https://github.com/npm/npm/issues/7202')
   npm.commands.install([], function (er) {
     t.ifError(er, 'installed OK')
     npm.commands.ls([], true, function (er, result) {
       t.ifError(er, 'ls OK')
       var simplified = toSimple(result)
-      t.ok(
-        deepEqual(simplified, oneTree) || deepEqual(simplified, otherTree),
-        'install tree is correct'
-      )
+      if (deepEqual(simplified, oneTree) || deepEqual(simplified, otherTree)) {
+        t.pass('install tree is correct')
+      } else {
+        t.isDeeply(simplified, oneTree, 'oneTree matches')
+        t.isDeeply(simplified, otherTree, 'otherTree matches')
+      }
+      t.done()
     })
   })
 })
